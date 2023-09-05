@@ -1,9 +1,6 @@
 --- ComputerCraft Rubik's Cube by Michiel
 local Pine3D = require("Pine3D.Pine3D")
-local SCREEN_WIDTH, SCREEN_HEIGHT = term.getSize()
 local frame = Pine3D.newFrame()
-
-local running = true
 
 local abs = math.abs
 local sqrt = math.sqrt
@@ -14,11 +11,23 @@ local rad = math.rad
 local max = math.max
 local min = math.min
 
+local SCREEN_WIDTH, SCREEN_HEIGHT = term.getSize()
+local keyTurnSpeed = 180
+local mouseTurnSpeed = 600 / SCREEN_WIDTH
+local ROTATE_SPEED = rad(360) / SCREEN_WIDTH * 0.5
+local running = true
+
 local function newPoly(x1, y1, z1, x2, y2, z2, x3, y3, z3, c)
     return {
-        x1 = x1, y1 = y1, z1 = z1,
-        x2 = x2, y2 = y2, z2 = z2,
-        x3 = x3, y3 = y3, z3 = z3,
+        x1 = x1,
+        y1 = y1,
+        z1 = z1,
+        x2 = x2,
+        y2 = y2,
+        z2 = z2,
+        x3 = x3,
+        y3 = y3,
+        z3 = z3,
         c = c,
     }
 end
@@ -27,11 +36,11 @@ local function newCube(options)
     options.color = options.color or colors.black
     local s = (options.scale or 1) / 2
     return {
-        -- Order is important: 2 * (axis + slice), with axis 1-3, slice 0-1 (negative or positve)
+        -- Order is important: 2 * (axis + slice), with axis 1-3, slice 0-1 (negative or positive)
         -- front / negative x
         newPoly(-s, -s, -s, -s, -s, s, -s, s, -s, options.front or options.color),
         newPoly(-s, -s, s, -s, s, s, -s, s, -s, options.front or options.color),
-        -- back / postive x
+        -- back / positive x
         newPoly(s, -s, -s, s, s, s, s, -s, s, options.back or options.color),
         newPoly(s, -s, -s, s, s, -s, s, s, s, options.back or options.color),
         -- down / negative y
@@ -60,7 +69,9 @@ COLOR_BACK = colors.blue
 ---@type PineObject[]
 local objects = {}
 local options = { scale = 1 / 3 }
-for x = -1, 1 do for y = -1, 1 do for z = -1, 1 do
+for x = -1, 1 do
+    for y = -1, 1 do
+        for z = -1, 1 do
             options.up = y == 1 and COLOR_UP or COLOR_BODY
             options.down = y == -1 and COLOR_DOWN or COLOR_BODY
             options.left = z == -1 and COLOR_LEFT or COLOR_BODY
@@ -76,9 +87,13 @@ for x = -1, 1 do for y = -1, 1 do for z = -1, 1 do
 end
 
 local function sign(n)
-    if n < -0.0000001 then return -1
-    elseif n > 0.0000001 then return 1
-    else return 0 end
+    if n < -0.0000001 then
+        return -1
+    elseif n > 0.0000001 then
+        return 1
+    else
+        return 0
+    end
 end
 
 -- Sort objects into slices
@@ -110,8 +125,8 @@ for i = 1, #objects do
     local cube = objects[i]
     for axis = 1, 3 do
         -- sign remapped to from 1 to 3
-        local x = sign(cube[axis]) + 2 -- this axis' coordinate sign (slice 1, 2, or 3)
-        local y = sign(cube[axis % 3 + 1]) + 2 -- next axis' coordinate sign
+        local x = sign(cube[axis]) + 2               -- this axis' coordinate sign (slice 1, 2, or 3)
+        local y = sign(cube[axis % 3 + 1]) + 2       -- next axis' coordinate sign
         local z = sign(cube[(axis + 1) % 3 + 1]) + 2 -- last axis' coordinate sign
         slices[axis][x].cubes[(y - 1) * 3 + z] = cube
     end
@@ -146,9 +161,10 @@ local ROTATE_INDEX_INV = {
 }
 
 --- Gather faces for every slice
-for axis = 1, 3 do for sliceIndex = 1, 3 do
+for axis = 1, 3 do
+    for sliceIndex = 1, 3 do
         local slice = slices[axis][sliceIndex]
-        local y = axis % 3 + 1 -- next axis'
+        local y = axis % 3 + 1       -- next axis'
         local z = (axis + 1) % 3 + 1 -- last axis'
 
         -- Outward facing faces
@@ -220,9 +236,15 @@ local CONFETTI_COLORS = {
 ---@type PinePoly[]
 local confetti = {
     {
-        x1 = 0, y1 = 0, z1 = 0,
-        x2 = 0.1, y2 = 0, z2 = 0,
-        x3 = 0.05, y3 = 0.075, z3 = 0,
+        x1 = 0,
+        y1 = 0,
+        z1 = 0,
+        x2 = 0.1,
+        y2 = 0,
+        z2 = 0,
+        x3 = 0.05,
+        y3 = 0.075,
+        z3 = 0,
         c = colors.white,
         forceRender = true
     }
@@ -251,7 +273,7 @@ local function animateConfetti(time, dt)
             ---@diagnostic disable-next-line: undefined-field
             local a = (0.4532378 * obj.ind) % 1 + 1
             obj[1] = d * sin(time * 0.2 * a + offset) -- x
-            obj[2] = obj[2] - a * dt -- y
+            obj[2] = obj[2] - a * dt                  -- y
             obj[3] = d * cos(time * 0.2 * a + offset) -- z
             if obj[2] < -3 then
                 table.remove(objects, i)
@@ -265,8 +287,8 @@ local DIST_CORNER = math.sqrt(2 * DIST_STRAIGT ^ 2)
 
 ---Rotate a side of the cube
 ---@type number|nil
-local rot = 0 -- how for to rotate (in radians)
-local currentAxis = 1 -- 1, 2, 3 for x, y, or z
+local rot = 0               -- how for to rotate (in radians)
+local currentAxis = 1       -- 1, 2, 3 for x, y, or z
 local currentSliceIndex = 1 -- 1, 2, 3 for slice index
 local function rotateSlice()
     if not rot then return end
@@ -340,8 +362,11 @@ local function applyRotation(dontSave)
                 local face = getFace(cube, axis, side)
                 sideColors[i] = face[1].c
                 -- Check if all colors on this side are the same
-                if firstColor then if sideColors[i] ~= firstColor then solveTime = nil end
-                else firstColor = sideColors[i] end
+                if firstColor then
+                    if sideColors[i] ~= firstColor then solveTime = nil end
+                else
+                    firstColor = sideColors[i]
+                end
             end
             allColors[2 * (axis - 1) + side + 1] = sideColors
         end
@@ -358,7 +383,6 @@ local cubeIsDragging = false
 local cubeDragStartX, cubeDragStartY = 0, 0
 local cubeDragNewX, cubeDragNewY = 0, 0
 local rAxis1mapX, rAxis1mapY, rAxis2mapX, rAxis2mapY
-local ROTATE_SPEED = rad(360) / SCREEN_WIDTH * 0.5
 local cubeMouseHandlers = {
     mouse_click = function(x, y)
         local objectIndex, polyIndex = frame:getObjectIndexTrace(objects, x, y)
@@ -372,9 +396,9 @@ local cubeMouseHandlers = {
         applyRotation()
 
         -- Start rotating slice
-        clickedFaceAxis = floor((polyIndex - 1) / 4) + 1 -- 1 to 3 axis of face that was clicked
+        clickedFaceAxis = floor((polyIndex - 1) / 4) + 1       -- 1 to 3 axis of face that was clicked
         local clickedFaceSide = floor((polyIndex - 1) / 2) % 2 -- 0 or 1 for negative or positive side
-        clickedFaceSide = clickedFaceSide * 2 - 1 -- -1 or 1
+        clickedFaceSide = clickedFaceSide * 2 - 1              -- -1 or 1
 
         clickedObject = objects[objectIndex]
         currentSliceIndex = sign(clickedObject[currentAxis]) + 2
@@ -539,8 +563,11 @@ local function userInput()
             if which == keys.space then shuffling = false end
             keysDown[which] = nil
         elseif event == "mouse_scroll" then
-            if which > 0 then distance = min(10, distance + 0.2)
-            else distance = max(1, distance - 0.2) end
+            if which > 0 then
+                distance = min(10, distance + 0.2)
+            else
+                distance = max(1, distance - 0.2)
+            end
         elseif event:find("^mouse") then
             if which == MOUSE_CAM_BUTTON then
                 local handler = cameraMouseHandlers[event]
@@ -549,14 +576,17 @@ local function userInput()
                 local handler = cubeMouseHandlers[event]
                 if handler then handler(x, y) end
             end
+        elseif event == "term_resize" then
+            SCREEN_WIDTH, SCREEN_HEIGHT = term.getSize()
+            mouseTurnSpeed = 600 / SCREEN_WIDTH
+            ROTATE_SPEED = rad(360) / SCREEN_WIDTH * 0.5
+            frame:setSize(1, 1, SCREEN_WIDTH, SCREEN_HEIGHT)
         elseif event == "terminate" then
             terminate()
         end
     end
 end
 
-local keyTurnSpeed = 180
-local mouseTurnSpeed = 600 / SCREEN_WIDTH
 local camera = {
     x = -distance,
     y = 0,
